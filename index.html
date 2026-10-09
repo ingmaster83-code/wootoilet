@@ -1,0 +1,109 @@
+---
+layout: default
+title: 우아화장실 - 전국 공중화장실·개방화장실 위치 찾기 (2만 곳)
+description: 전국 공중화장실·개방화장실의 위치와 개방시간, 변기 수를 동네별로 확인하세요.
+---
+
+<div class="hero">
+  <h1>우아화장실 · 🚻 우리 동네 공중화장실·개방화장실 찾기</h1>
+  <p>동네 이름과 종류로 위치와 정보를 바로 확인하세요 (예: 역삼동 공중화장실)</p>
+  <div class="search-wrap">
+    <input type="text" id="searchInput" class="search-input"
+           placeholder="예) 역삼동 공중화장실, 서울역, 해운대..."
+           autocomplete="off" aria-label="화장실 검색">
+    <button class="search-btn" onclick="doSearch()">🔍 검색</button>
+  </div>
+</div>
+
+<div class="page-with-sidebar">
+<div>
+<div id="search-results"></div>
+
+<div class="top-ad-bar">
+  {% include ad.html %}
+</div>
+
+<div class="section" style="padding-bottom:0;">
+  <div class="info-box">
+    💡 공공데이터에서 확인되는 <strong>{{ site.data.tl_stats.total_fmt }}곳</strong>의 화장실(공중화장실·개방화장실)을 시도·시군구·동·종류별로 정리했습니다.
+    각 곳의 주소와 같은 동네 다른 곳을 한눈에 볼 수 있습니다.
+  </div>
+</div>
+
+<div class="section">
+  <h2 class="section-title">🏷️ 종류별로 찾기</h2>
+  <div class="cat-btn-grid">
+    {% for c in site.data.tl_stats.cats %}<a class="cat-btn" href="/cat/{{ c.slug }}/"><span class="ico">{{ c.icon }}</span>{{ c.label }}<small>전국 {{ c.count_fmt }}곳</small></a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="section">
+  <h2 class="section-title">📍 지역별로 찾기</h2>
+  <div class="region-grid">
+    {% for d in site.data.tl_stats.do_counts %}<a href="/region/{{ d.name }}/" class="region-btn"><span class="region-icon">📍</span>{{ d.name }} <span style="color:#9CA3AF;font-size:.82rem;">({{ d.count }})</span></a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="section">
+  <h2 class="section-title">🔥 시설이 많은 지역·종류</h2>
+  <div class="chip-row">
+    {% for c in site.data.tl_stats.top_combos %}<a class="chip" href="{{ c.url }}">{{ c.do }} {{ c.label }}<em>{{ c.count }}</em></a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="section">
+  <h2 class="section-title">✅ 공중화장실 이용 전 확인하세요</h2>
+  <ul style="color:#374151;line-height:1.9;font-size:.93rem;padding-left:22px;">
+    <li>지자체가 입력하는 데이터라 <strong>갱신 시점이 제각각</strong>이며 폐쇄·이전 정보가 늦게 반영될 수 있습니다.</li>
+    <li>개방화장실은 건물·상가가 정한 시간에만 이용할 수 있습니다. <strong>개방시간</strong>을 확인하세요.</li>
+    <li>장애인용·어린이용 변기 수는 표시된 값 기준이며 실제 이용 가능 여부는 현장에서 다를 수 있습니다.</li>
+  </ul>
+  <p style="margin-top:12px;"><a href="/guide/">공중화장실 찾는 요령 자세히 보기 →</a></p>
+</div>
+
+</div>
+<aside class="tool-sidebar"></aside>
+</div>
+
+<script>
+let items = null;
+
+async function loadIndex() {
+  if (items) return;
+  const resp = await fetch('/search_index.json');
+  items = await resp.json();
+  items.forEach(f => { f.h = (f.n + ' ' + f.do + ' ' + f.sg + ' ' + f.dg + ' ' + f.c).toLowerCase(); });
+}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  const el = document.getElementById('search-results');
+  if (!q) { el.innerHTML = ''; return; }
+  el.innerHTML = '<p style="text-align:center;padding:20px;color:#6B7280;">검색 중...</p>';
+  loadIndex().then(() => {
+    const toks = q.toLowerCase().split(/\s+/).filter(Boolean);
+    const results = [];
+    for (const f of items) {
+      if (toks.every(t => f.h.includes(t))) { results.push(f); if (results.length >= 40) break; }
+    }
+    if (results.length === 0) {
+      el.innerHTML = '<p style="text-align:center;padding:20px;color:#6B7280;">검색 결과가 없습니다.</p>';
+      return;
+    }
+    el.innerHTML = `<div style="max-width:960px;margin:0 auto;padding:0 20px;">
+      <p style="padding:8px 0;font-size:.9rem;color:#6B7280;">"${esc(q)}" 검색 결과 ${results.length}${results.length >= 40 ? '+' : ''}개</p>
+      <ul class="office-list">${results.map(f => `<li><a href="/place/${f.s}/"><b>${esc(f.n)}</b><small>${esc(f.c)} · ${esc(f.do)} ${esc(f.sg)} ${f.dg === '기타' ? '' : esc(f.dg)}</small></a></li>`).join('')}</ul>
+    </div>`;
+    el.scrollIntoView({ behavior: 'smooth' });
+  });
+}
+
+document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+const urlQ = new URLSearchParams(location.search).get('q');
+if (urlQ) { document.getElementById('searchInput').value = urlQ; doSearch(); }
+</script>
